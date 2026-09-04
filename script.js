@@ -1,91 +1,160 @@
-const main = document.querySelector("main");
-const btn = document.querySelector("button");
-const timer = document.querySelector("#timer");
-const scoree = document.querySelector("#score");
-const overlay = document.querySelector("#overlay");
-
-let box = document.createElement("div");
-box.classList.add("box");
- 
-let time = 0;
-let Interval;
-let score = 0
-let clicked = false;
+// Selection's of the elements !
+const board = document.querySelector(".board");
+const startButton = document.querySelector(".btn-start");
+const modal = document.querySelector(".modal");
+const startGameModal = document.querySelector(".start-game");
+const gameOverModal = document.querySelector(".game-over");
+const restartButton = document.querySelector(".btn-restart");
+const highScoreElement = document.querySelector("#high-score");
+const scoreElement = document.querySelector("#score");
+const timeElement = document.querySelector("#time");
 
 
+const blockHeight = 50;
+const blockWidth = 50;
+
+let score = 0;
+let time = `00-00`
+
+let highScore = localStorage.getItem("highScore") || 0;
+highScoreElement.innerText = highScore
+
+const cols = Math.floor(board.clientWidth / blockWidth); // in this we divide the board height & width to block height and width.
+let  rows = Math.floor(board.clientHeight / blockHeight);
+let intervalId = null;
+let timeIntervalId = null;
+let food = {x: Math.floor(Math.random() * rows),y: Math.floor(Math.random() * cols)}
 
 
-const randomColor = ()=>{
+const blocks = []
+let snake = [{
+    x:1 , y:3
+}]
 
-    let r = Math.floor(Math.random () * 256);
-    let g = Math.floor(Math.random () * 256);
-    let b = Math.floor(Math.random () * 256);
+let direction = "right"
 
-    return `rgb(${r},${g},${b})`
+for(let row = 0 ;row < rows; row++){     // this for loop is used, to make grids in the block.
+    for(let col = 0 ;col < cols; col++){
+        const block = document.createElement("div");
+        block.classList.add("block")
+        board.appendChild(block);
+        blocks[`${row}-${col}`] = block
+    }
+}
 
-};
+function render(){
 
+    let head = null;
+    blocks[`${food.x}-${food.y}`].classList.add("food");
 
-    const randomBox = ()=>{
+    if(direction === "left"){
+        head = {x: snake[0].x, y: snake[0].y-1}
+    }else if (direction === "right"){
+        head = {x: snake[0].x, y: snake[0].y+1}
+    }else if (direction === "down"){
+        head = {x: snake[0].x+1, y: snake[0].y}
+    }else if (direction ===  "up"){
+        head = {x: snake[0].x-1, y: snake[0].y}
+    }
 
-        clicked = false; // reset for the new box
-        
-        box.style.backgroundColor = randomColor();
-        main.append(box);
+    // Wall Colison logic !
+    if(head.x <0 || head.x >=rows || head.y <0 || head.y >=cols){
+        clearInterval(intervalId);
 
-        let mainH = main.clientHeight - box.offsetHeight;
-        let mainW = main.clientWidth - box.offsetWidth;
+        modal.style.display = "flex";
+        startGameModal.style.display = "none";
+        gameOverModal.style.display = "flex"
+        return;
+    }
 
+    // food consume logic !
+    if(head.x === food.x && head.y === food.y){
 
-        const rY = Math.random() * mainH;
-        const rX = Math.random() * mainW;
- 
- 
-        box.style.top = `${rY}px`;
-        box.style.left = `${rX}px`;
-    };   
+        blocks[`${food.x}-${food.y}`].classList.remove("food");
+        food = {x: Math.floor(Math.random() * rows),y: Math.floor(Math.random() * cols)}
 
-window.addEventListener("keypress" , ()=>{
-    clearInterval(Interval);
+        blocks[`${food.x}-${food.y}`].classList.add("food");
+        snake.unshift(head);
 
-    Interval = setInterval(()=>{
-        randomBox();
-        time += 1;
-        timer.textContent = time;
-    },1000);
+        score +=10;
+        scoreElement.innerText = score
 
-    setTimeout(() => {
-       clearInterval(Interval); 
+        if(score > highScore){
+            highScore = score;
+            localStorage.setItem("highScore" , highScore.toString())
+        }
+    }
 
-       //Show overLay
-       overlay.style.display = "flex";
-       
-        setTimeout(()=>{
-            //remove overlay after 3 sec
-            overlay.style.display = "none"
+    snake.forEach(segment =>{
+        blocks[`${segment.x}-${segment.y}`].classList.remove("fill")
+    })
 
-            scoree.style.display = "none"
-            timer.style.display = "none"
-        },3000)
+    snake.unshift(head);
+    snake.pop()
 
-    }, 10000);
+    snake.forEach((segment, index) => {
+    const block = blocks[`${segment.x}-${segment.y}`];
 
+    block.classList.add("fill");
 
+    if (index === 0) {
+        block.classList.add("head");
+    }
+    
 });
+}
 
-box.addEventListener("click" , ()=>{
-    score += 1;
-    scoree.textContent = score;
-});
 
-box.addEventListener("click", () => {
+    startButton.addEventListener("click" , ()=>{
+        modal.style.display = "none";
+        intervalId = setInterval(() => { render();},300);
+        timeIntervalId = setInterval(()=>{
+            let [min,sec] = time.split("-").map(Number)
+            if(sec === 59){
+                min += 1
+                sec = 0
+            }else{
+                sec += 1
+            }
 
-    if (clicked) return; // ignore further clicks
+            time = `${min}-${sec}`
+            timeElement.innerText = time;
+        },1000)
+    });
 
-    clicked = true;
+    restartButton.addEventListener("click" , restartGame);
 
-    score += 1;
-    scoree.textContent = score;
+    function restartGame(){
+        blocks[`${food.x}-${food.y}`].classList.remove("food");
+        snake.forEach(segment =>{blocks[`${segment.x}-${segment.y}`].classList.remove("fill")})
 
-});
+        score = 0;
+        time = `00-00`
+
+        scoreElement.innerText = score
+        timeElement.innerText = time
+        highScoreElement.innerText = highScore
+
+        modal.style.display = "none"
+        direction = "down"
+        snake = [{x:1 , y:3}]
+        food = {x: Math.floor(Math.random() * rows),y: Math.floor(Math.random() * cols)}
+        intervalId = setInterval(() => { render();},300);
+    }
+
+
+addEventListener("keydown" , (event)=>{
+    if(event.key === "ArrowUp"){
+        direction = "up"
+    }else if(event.key === "ArrowDown"){
+        direction = "down"
+    }else if(event.key === "ArrowLeft"){
+        direction = "left"
+    }else if(event.key === "ArrowRight"){
+        direction = "right"
+    }
+    
+})
+
+
 
